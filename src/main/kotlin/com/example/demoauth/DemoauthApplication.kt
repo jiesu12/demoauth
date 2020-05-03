@@ -9,7 +9,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration
+import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter
 import org.springframework.security.core.userdetails.User
@@ -23,6 +25,7 @@ import org.springframework.security.oauth2.common.util.JsonParser
 import org.springframework.security.oauth2.common.util.JsonParserFactory
 import org.springframework.security.oauth2.config.annotation.configurers.ClientDetailsServiceConfigurer
 import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerConfigurerAdapter
+import org.springframework.security.oauth2.config.annotation.web.configuration.AuthorizationServerSecurityConfiguration
 import org.springframework.security.oauth2.config.annotation.web.configuration.EnableAuthorizationServer
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer
 import org.springframework.security.oauth2.provider.OAuth2Authentication
@@ -78,7 +81,7 @@ class AuthServerConfig(val passwordEncoder: PasswordEncoder,
         clients.inMemory()
                 .withClient("client")
                 .secret(passwordEncoder.encode("secret"))
-                .redirectUris("http://localhost:8081")
+                .redirectUris("http://localhost:8080")
                 .authorizedGrantTypes("authorization_code", "client_credentials")
                 .scopes("read")
                 .autoApprove(true)
@@ -124,9 +127,23 @@ class SecurityConfig : WebSecurityConfigurerAdapter() {
     }
 }
 
+@Configuration
+@Order(1)
+class JwkEndpointSetConfig : AuthorizationServerSecurityConfiguration() {
+    override fun configure(http: HttpSecurity) {
+        super.configure(http)
+        http.requestMatchers()
+                .mvcMatchers("/.well-known/jwks.json")
+                .and()
+                .authorizeRequests()
+                .mvcMatchers("/.well-known/jwks.json").permitAll()
+    }
+}
+
 @FrameworkEndpoint
-internal class JwkSetEndpoint(var jwkSet: JWKSet) {
+class JwkSetEndpoint(var jwkSet: JWKSet) {
     @GetMapping("/.well-known/jwks.json")
     @ResponseBody
-    fun getKey(): JSONObject = jwkSet.toJSONObject()
+    fun getKey(): JSONObject =
+            jwkSet.toJSONObject()
 }
